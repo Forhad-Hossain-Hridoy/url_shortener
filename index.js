@@ -1,40 +1,37 @@
+//External Import's
+require("dotenv").config();
 const express = require("express");
-const {connectToMongoDB} = require("./connect")
-const URL = require("./models/url");
 const path = require("path");
+
+//Internal Import's
+const { connectToMongoDB } = require("./connect");
 const staticRoute = require("./routes/staticRouter");
-
 const urlRoute = require("./routes/url");
+const { hanldeRedirectURL, handleDeleteURL } = require("./controllers/url");
+
 const app = express();
-const PORT = 8001 ; 
+const PORT = 8001;
 
-connectToMongoDB("mongodb://localhost:27017/short-url")
-.then(()=>console.log("mongodb connected"));
+// Serve static files
+app.use(express.static(path.join(__dirname, "public")));
 
-app.set('view engine','ejs');
-app.set('views',path.resolve('./views'))
+//database connection
+connectToMongoDB(process.env.MONGODB_URL).then(() =>
+  console.log("mongodb connected")
+);
 
+//view engine configaration
+app.set("view engine", "ejs");
+app.set("views", path.resolve("./views"));
 
 app.use(express.json());
-app.use(express.urlencoded({extended:false}))
+app.use(express.urlencoded({ extended: false }));
 
-app.use("/url",urlRoute);
-app.use("/",staticRoute);
+//route setup
+app.use("/url", urlRoute);
+app.use("/", staticRoute);
 
+app.get("/:shortId", hanldeRedirectURL);
+app.post("/url/delete", handleDeleteURL);
 
-app.get("/:shortId", async (req,res)=>{
-    const shortId = req.params.shortId  ;
-   const entry = await URL.findOneAndUpdate(
-    {shortId},
-    {$push:{visitHistory:{timestamps: Date.now()}}},
-    {new: true}
-   );
-   console.log(entry)
-   if(!entry){
-    return res.status(404).send("Short URL not found");
-   }
-
-   res.redirect(entry.redirectURL);
-});
-
-app.listen(PORT,()=>console.log(`Server started at PORT ${PORT}`));
+app.listen(PORT, () => console.log(`Server started at PORT ${PORT}`));
